@@ -5,9 +5,18 @@ import {
     WebhookPayloadTeamAddOrganization 
 } from '@octokit/webhooks'
 
+export interface ChangedFrom {
+    from: string;
+}
+
+export interface PayloadLabelChanges {
+    name: ChangedFrom  | undefined;
+    color: ChangedFrom | undefined;
+}
 
 export interface LabelHookPayload {
     action: string;
+    changes: PayloadLabelChanges;
     label: WebhookPayloadLabelLabel;
     repository: PayloadRepository;
     sender: WebhookPayloadLabelSender;
