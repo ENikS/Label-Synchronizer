@@ -1,6 +1,6 @@
 import { Application } from 'probot'
-import { DeleteLabelAction as DeletedLabelAction, ModifiedLabelAction } from './labels'
 import { LabelEnumerator, LabelHookPayload } from './repositories'
+import { DeleteLabelAction as DeletedLabelAction, ModifiedLabelAction } from './labels'
 
 export = (app: Application) => {
   app.on('label', async (context) => {
@@ -9,7 +9,7 @@ export = (app: Application) => {
 
     // Parameters
     const payload = context.payload as LabelHookPayload
-    const login = payload.organization.login
+    const login  = payload.organization.login
     const target = payload.changes?.name
                  ? payload.changes.name.from
                  : payload.label.name

@@ -1,9 +1,7 @@
 import { Context } from 'probot'
 import { Octokit } from '@octokit/rest'
-import { WebhookPayloadLabelLabel,
-         WebhookPayloadLabel,
-         PayloadRepository,
-         WebhookPayloadLabelSender,
+import { WebhookPayloadLabelLabel, WebhookPayloadLabel,
+         PayloadRepository, WebhookPayloadLabelSender,
          WebhookPayloadTeamAddOrganization } from '@octokit/webhooks'
 
 export interface ChangedFrom {
@@ -80,11 +78,10 @@ export async function * LabelEnumerator (context: Context<WebhookPayloadLabel>, 
   }
 
   try {
-    // Get installed repos
-
+    
+    // Create a set of target repositories 
     let set: Set<string> = new Set<string>();
     const repositories = await context.github.paginate(context.github.apps.listRepos({ per_page: 100 }));
-    
     for (let page of repositories as Octokit.Response<Octokit.AppsListReposResponse>[]) {
         for (let repo of page.data.repositories) {
             if (repo.node_id != (context.payload as LabelHookPayload).repository.node_id && !repo.private) {
@@ -93,17 +90,22 @@ export async function * LabelEnumerator (context: Context<WebhookPayloadLabel>, 
         }
     }
 
+    // Query matching labels
     let data: IRepoQueryPayload
     let promise = context.github.graphql(query, tracker)
-
-    do {
-      // Get paged list of repositories
+    
+    do 
+    {
+      // Wait for the results
       data = await promise as IRepoQueryPayload
+
+      // If more data is available request it now
       if (data.organization.repositories.pageInfo.hasNextPage) {
         tracker.cursor = data.organization.repositories.pageInfo.endCursor
         promise = context.github.graphql(query, tracker)
       }
 
+      // Yield label info for each matching repository
       for (const node of data.organization.repositories.nodes) {
         if (set.has(node.id)) yield node
       }
