@@ -1,100 +1,74 @@
-import { GitHubAPI } from 'probot'
-import {
-  WebhookPayloadLabelLabel,
-  PayloadRepository,
-  WebhookPayloadLabelSender,
-  WebhookPayloadTeamAddOrganization
-} from '@octokit/webhooks'
+import { Context } from 'probot'
+import { Octokit } from '@octokit/rest'
+import { WebhookPayloadLabelLabel, WebhookPayloadLabel } from '@octokit/webhooks'
+import { INodeInfo } from './repositories'
 
-export interface ChangedFrom {
-  from: string;
+export function DeleteLabelAction(context: Context<WebhookPayloadLabel>, login: string, name: string) : (info: INodeInfo) => void {
+  return (info: INodeInfo) => {
+    
+    if (null == info.label) return;
+
+    const options: Octokit.IssuesDeleteLabelParams = {
+      owner: login,
+      repo: info.name,
+      name: name
+    }
+
+    context.github.issues
+                  .deleteLabel(options)
+                  .catch((e: Octokit.HookError) => {
+                    context.log.error(e)
+                  })
+  }
 }
 
-export interface PayloadLabelChanges {
-  name: ChangedFrom | undefined;
-  color: ChangedFrom | undefined;
-}
+export function ModifiedLabelAction(context: Context<WebhookPayloadLabel>, login: string, name: string, label: WebhookPayloadLabelLabel) : (info: INodeInfo) => void {
+  return (info: INodeInfo) => {
+    if (info.label == null) {
+      // Create label
 
-export interface LabelHookPayload {
-  action: string;
-  changes: PayloadLabelChanges;
-  label: WebhookPayloadLabelLabel;
-  repository: PayloadRepository;
-  sender: WebhookPayloadLabelSender;
-  organization: WebhookPayloadTeamAddOrganization;
-}
-
-export interface IPageInfo {
-  endCursor: string;
-  hasNextPage: boolean;
-}
-
-export interface ILabelInfo {
-  id: string;
-  color: string
-  description: string | null
-}
-
-export interface INodeInfo {
-  id: string;
-  name: string;
-  label: ILabelInfo | null
-}
-
-export interface IRepoQueryPayload {
-  organization: {
-      repositories: {
-          pageInfo: IPageInfo;
-          nodes: Array<INodeInfo>;
-      }
-  };
-}
-
-const query = `query labels($login: String!, $name: String!, $cursor: String) {
-    organization(login: $login) {
-      repositories(first: 100, after: $cursor) {
-        pageInfo {
-          endCursor
-          hasNextPage
+        const options: Octokit.IssuesCreateLabelParams = {
+          owner: login,
+          repo: info.name,
+          name: label.name,
+          color: label.color,
+          description: (label as any).description
         }
-        nodes {
-          id
-          name
-          label(name: $name) {
-            id
-            color
-            description
-          }
+
+        context.github.issues
+                      .createLabel(options)
+                      .catch((e: Octokit.HookError) => {
+                        if (e.status != 422) {
+                          context.log.error(e)
+                          return
+                        }
+
+                        // Resend as update request
+                        const update = options as any
+                        update.current_name = options.name
+                        context.github.issues
+                                      .updateLabel(update)                        
+                                      .catch((e: Octokit.HookError) => {
+                                        context.log.error(e)
+                                      })
+                      })
+      } else {
+      // Update label
+
+        const options: Octokit.IssuesUpdateLabelParams = {
+          owner: login,
+          repo: info.name,
+          current_name: name,
+          name: label.name,
+          color: label.color,
+          description: (label as any).description
         }
+
+        context.github.issues
+                      .updateLabel(options)
+                      .catch((e: Octokit.HookError) => {
+                        context.log.error(e)
+                      })
       }
     }
-  }`
-
-export async function * LabelEnumerator (github: GitHubAPI, login: string, repo: string, name: string) {
-  const tracker = {
-    login: login,
-    name: name,
-    cursor: null as any
-  }
-
-  try {
-    let data: IRepoQueryPayload
-    let promise = github.graphql(query, tracker)
-
-    do {
-      // Get paged list of repositories
-      data = await promise as IRepoQueryPayload
-      if (data.organization.repositories.pageInfo.hasNextPage) {
-        tracker.cursor = data.organization.repositories.pageInfo.endCursor
-        promise = github.graphql(query, tracker)
-      }
-
-      for (const node of data.organization.repositories.nodes) {
-        if (node.name == repo) continue
-        yield node
-      }
-    } while (data.organization.repositories.pageInfo.hasNextPage)
-  } catch (e) {
-    console.log(e)
-  }
 }
