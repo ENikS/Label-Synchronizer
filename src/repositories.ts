@@ -83,7 +83,7 @@ export async function * LabelEnumerator (context: Context<WebhookPayloadLabel>, 
     // Get installed repos
 
     let set: Set<string> = new Set<string>();
-    const repositories = await context.github.paginate(context.github.apps.listRepos({ per_page: 10 }));
+    const repositories = await context.github.paginate(context.github.apps.listRepos({ per_page: 100 }));
     
     for (let page of repositories as Octokit.Response<Octokit.AppsListReposResponse>[]) {
         for (let repo of page.data.repositories) {
