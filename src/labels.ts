@@ -1,9 +1,59 @@
 import { GitHubAPI } from 'probot'
-import { IRepoQueryPayload } from './github-wrapper'
+import { 
+  WebhookPayloadLabelLabel, 
+  PayloadRepository, 
+  WebhookPayloadLabelSender, 
+  WebhookPayloadTeamAddOrganization 
+} from '@octokit/webhooks'
+
+export interface ChangedFrom {
+  from: string;
+}
+
+export interface PayloadLabelChanges {
+  name: ChangedFrom  | undefined;
+  color: ChangedFrom | undefined;
+}
+
+export interface LabelHookPayload {
+  action: string;
+  changes: PayloadLabelChanges;
+  label: WebhookPayloadLabelLabel;
+  repository: PayloadRepository;
+  sender: WebhookPayloadLabelSender;
+  organization: WebhookPayloadTeamAddOrganization;
+}
+
+export interface IPageInfo {
+  endCursor: string;
+  hasNextPage: boolean;
+}
+
+export interface ILabelInfo {
+  id: string;
+  color: string
+  description: string | null
+}
+
+export interface INodeInfo {
+  id: string;
+  name: string;
+  label: ILabelInfo | null
+}
+
+export interface IRepoQueryPayload {
+  organization: {
+      repositories: {
+          pageInfo: IPageInfo;
+          nodes: Array<INodeInfo>;
+      }
+  };
+}
+
 
 const query = `query labels($login: String!, $name: String!, $cursor: String) {
     organization(login: $login) {
-      repositories(first: 30, after: $cursor) {
+      repositories(first: 100, after: $cursor) {
         pageInfo {
           endCursor
           hasNextPage
@@ -22,7 +72,7 @@ const query = `query labels($login: String!, $name: String!, $cursor: String) {
   }`
 
   
-export async function* LabelEnumerator(github: GitHubAPI, login: string, name: string) {
+export async function* LabelEnumerator(github: GitHubAPI, login: string, repo: string, name: string) {
 
     let tracker = {
         "login":  login,
@@ -45,7 +95,8 @@ export async function* LabelEnumerator(github: GitHubAPI, login: string, name: s
             }
             
             for (let node of data.organization.repositories.nodes) {
-                yield node;
+              if (node.name == repo) continue;
+              yield node;
             }
 
         } while(data.organization.repositories.pageInfo.hasNextPage);

@@ -1,33 +1,92 @@
 import { Application } from 'probot'
-import { LabelHookPayload } from './github-wrapper'
-import { LabelEnumerator } from './labels'
+import { Octokit } from '@octokit/rest'
+import { LabelEnumerator, LabelHookPayload, INodeInfo } from './labels'
+
 
 export = (app: Application) => {
 
   app.on('label',  async (context) => {
     
+    // Dismiss if called recursively
     if (context.isBot) return;
 
+    // Parameters
     let payload = context.payload as LabelHookPayload;
-    let login = payload.organization.login;
-    let label = payload.changes?.name 
-              ? payload.changes.name.from
-              : payload.label.name;
+    let login  = payload.organization.login;
+    let source = payload.repository.name;
+    let target = payload.changes?.name 
+               ? payload.changes.name.from
+               : payload.label.name;
 
-    for await (let node of LabelEnumerator(context.github, login, label)) {
-      
-      console.log(node);
+    // Select and create action           
+    var action = "deleted" == payload.action 
 
+    ? // Delete labels action
+    (info: INodeInfo) => {
+      if (null != info.label) {
+
+        let options: Octokit.IssuesDeleteLabelParams = {
+          owner: login,
+          repo: info.name,
+          name: payload.label.name,
+        };        
+
+        context.github.issues.deleteLabel(options)
+                             .catch((e: Octokit.HookError) => {
+                               context.log.error(e)
+                              });
+      }
+    } 
+
+    : // Modify labels action
+    async (info: INodeInfo) => {
+      if (null == info.label) {
+
+        // Create label
+
+        let options: Octokit.IssuesCreateLabelParams = {
+          owner: login,
+          repo: info.name,
+          name: payload.label.name,
+          color: payload.label.color,
+          description: (payload.label as any)['description']
+        };
+
+        context.github.issues.createLabel(options)
+                             .catch((e: Octokit.HookError) => {
+
+                               if (422 != e.status) {
+                                 context.log.error(e);
+                                 return;
+                               }
+
+                               // Resend as update request
+                               let update = options as any;
+                               update.current_name = options.name;
+                               context.github.issues.updateLabel(update);
+                              });
+
+      } else {
+        
+        // Update label
+
+        let options: Octokit.IssuesUpdateLabelParams = {
+          owner: login,
+          repo: info.name,
+          current_name: target,
+          name: payload.label.name,
+          color: payload.label.color,
+          description: (payload.label as any)['description']
+        };
+
+        context.github.issues.updateLabel(options)
+                             .catch((e: Octokit.HookError) => {
+                               context.log.error(e)
+                              });
+      }
     }
+ 
+    // Process nodes
+    for await (let node of LabelEnumerator(context.github, login, source, target)) action(node);
   })
 }
-
-// context.payload
-// Object {action: "edited", label: Object, changes: Object, repository: Object, organization: Object, …}
-// action: "edited"
-// changes: Object {name: Object}
-// installation: Object {id: 8302263, node_id: "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uODMwMjI2Mw=="}
-// label: Object {id: 1970269254, node_id: "MDU6TGFiZWwxOTcwMjY5MjU0", url: "https://api.github.com/repos/unitycontainer/experi…", …}
-// organization: Object {login: "unitycontainer", id: 12849707, node_id: "MDEyOk9yZ2FuaXphdGlvbjEyODQ5NzA3", …}
-// repository: Object {id: 183472138, node_id: "MDEwOlJlcG9zaXRvcnkxODM0NzIxMzg=", name: "experimental", …}
-// sender: Object {login: "ENikS", id: 1750155, node_id: "MDQ6VXNlcjE3NTAxNTU=", …}
