@@ -129,7 +129,7 @@ default_permissions:
 name: Label Synchronizer
 
 # The homepage of your GitHub App.
-# url: https://example.com/
+url: https://eniks.github.io/Label-Synchronizer/
 
 # A description of the GitHub App.
 description: This app synchronizes label across user account or organization
