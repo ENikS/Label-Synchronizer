@@ -2,10 +2,22 @@ import { Application } from 'probot'
 import { LabelEnumerator, LabelHookPayload } from './repositories'
 import { DeleteLabelAction as DeletedLabelAction, ModifiedLabelAction } from './labels'
 
+var botLoginName: string;
+
 export = (app: Application) => {
+ 
   app.on('label', async (context) => {
-    
-    if (context.isBot) return; // Dismiss if called recursively
+
+    // Get login info of the bot
+    if (!botLoginName) {
+      const botUser = await context.github.query(`{ viewer { login } }`);
+      botLoginName = botUser?.viewer.login;
+    }
+
+    // Dismiss if called recursively 
+    if (context.isBot && context.payload.sender.login == botLoginName) {
+      return; 
+    }
 
     // Parameters
     const payload = context.payload as LabelHookPayload
