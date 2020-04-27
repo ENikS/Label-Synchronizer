@@ -1,6 +1,7 @@
-# Label Synchronizer GitHub App
+A GitHub Application for synchronizing labels across repositories.
 
 
-## License
+
+### License
 
 [ISC](LICENSE) © 2020 ENikS
