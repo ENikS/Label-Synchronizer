@@ -5,6 +5,7 @@ import { DeleteLabelAction as DeletedLabelAction, ModifiedLabelAction } from './
 export = (app: Application) => {
  
   app.on('label', async (context) => {
+    context.log.trace(`Received event ${context.event} from ${context.payload.sender.login}`);
 
     // Dismiss requests from any bot
     if (context.isBot) return; 
@@ -15,6 +16,8 @@ export = (app: Application) => {
     const target = payload.changes?.name
                  ? payload.changes.name.from
                  : payload.label.name
+                 
+    context.log.trace(`Organization: ${login}, Label: ${target}`);
 
     // Select and create action to perform
     var action = payload.action == 'deleted'
