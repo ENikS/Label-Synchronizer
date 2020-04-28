@@ -106,7 +106,6 @@ export async function * LabelEnumerator (context: Context<WebhookPayloadLabel>, 
   }
 }
 
-
 async function GetInstallations (context: Context<WebhookPayloadLabel>) {
     // Create a set of target repositories 
     let morePages = true;
