@@ -5,7 +5,6 @@ import { DeleteLabelAction as DeletedLabelAction, ModifiedLabelAction } from './
 export = (app: Application) => {
  
   app.on('label', async (context) => {
-
     // Dismiss requests from any bot
     if (context.isBot) return; 
 
