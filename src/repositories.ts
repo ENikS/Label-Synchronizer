@@ -21,11 +21,6 @@ export interface LabelHookPayload {
   organization: WebhookPayloadTeamAddOrganization;
 }
 
-export interface IPageInfo {
-  endCursor: string;
-  hasNextPage: boolean;
-}
-
 export interface ILabelInfo {
   id: string;
   color: string
@@ -41,7 +36,10 @@ export interface INodeInfo {
 export interface IRepoQueryPayload {
   organization: {
       repositories: {
-          pageInfo: IPageInfo;
+          pageInfo: {
+            endCursor: string;
+            hasNextPage: boolean;
+          };
           nodes: Array<INodeInfo>;
       }
   };

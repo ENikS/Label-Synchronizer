@@ -8,7 +8,6 @@ export = (app: Application) => {
 
     // Dismiss requests from any bot
     if (context.isBot) return; 
-    
 
     // Parameters
     const payload = context.payload as LabelHookPayload
