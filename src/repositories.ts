@@ -1,5 +1,4 @@
 import { Context } from 'probot'
-import { Octokit } from '@octokit/rest'
 import { WebhookPayloadLabelLabel, WebhookPayloadLabel,
          PayloadRepository, WebhookPayloadLabelSender,
          WebhookPayloadTeamAddOrganization } from '@octokit/webhooks'
@@ -79,23 +78,13 @@ export async function * LabelEnumerator (context: Context<WebhookPayloadLabel>, 
 
   try {
     
-    // Create a set of target repositories 
-    let set: Set<string> = new Set<string>();
-    const repositories = await context.github.paginate(context.github.apps.listRepos({ per_page: 100 }));
-    for (let page of repositories as Octokit.Response<Octokit.AppsListReposResponse>[]) {
-        for (let repo of page.data.repositories) {
-            if (repo.node_id != (context.payload as LabelHookPayload).repository.node_id && !repo.private) {
-                set.add(repo.node_id);
-            }
-        }
-    }
+    let installations = await GetInstallations(context);
 
     // Query matching labels
     let data: IRepoQueryPayload
     let promise = context.github.graphql(query, tracker)
     
-    do 
-    {
+    do {
       // Wait for the results
       data = await promise as IRepoQueryPayload
 
@@ -107,7 +96,7 @@ export async function * LabelEnumerator (context: Context<WebhookPayloadLabel>, 
 
       // Yield label info for each matching repository
       for (const node of data.organization.repositories.nodes) {
-        if (set.has(node.id)) yield node
+        if (installations.has(node.id)) yield node
       }
 
     } while (data.organization.repositories.pageInfo.hasNextPage)
@@ -115,4 +104,38 @@ export async function * LabelEnumerator (context: Context<WebhookPayloadLabel>, 
   } catch (e) {
     context.log.error(e)
   }
+}
+
+async function GetInstallations (context: Context<WebhookPayloadLabel>) {
+    // Create a set of target repositories 
+    let morePages = true;
+    let set: Set<string> = new Set<string>();
+    let options = { page: 1, per_page: 100 };
+    let reposPromise = context.github.apps.listRepos(options);
+
+    // Get list of repos where the app is installed
+    do {
+
+      // Wait for the results
+      let repos = await reposPromise;
+      
+      // If more data is available request it now
+      let last = options.page * options.per_page;
+      if (repos.data.total_count > last) {
+        options.page++;
+        reposPromise = context.github.apps.listRepos(options);
+      } else {
+        morePages = false;
+      }
+
+      // Process page
+      for (let repo of repos.data.repositories) {
+        if (repo.node_id != (context.payload as LabelHookPayload).repository.node_id && !repo.private) {
+            set.add(repo.node_id);
+        }
+      }
+
+    } while (morePages);
+
+    return set;
 }
