@@ -1,9 +1,12 @@
 import { Context } from 'probot'
 import { Octokit } from '@octokit/rest'
-import { WebhookPayloadLabelLabel, WebhookPayloadLabel } from '@octokit/webhooks'
-import { INodeInfo } from './repositories'
+import { WebhookPayloadLabel } from '@octokit/webhooks'
+import { INodeInfo, LabelHookPayload } from './repositories'
 
-export function DeleteLabelAction(context: Context<WebhookPayloadLabel>, login: string, name: string) : (info: INodeInfo) => void {
+export function DeleteLabelAction(context: Context<WebhookPayloadLabel>, name: string) : (info: INodeInfo) => void {
+
+  const login = (context.payload as LabelHookPayload).organization.login;
+
   return (info: INodeInfo) => {
     
     if (null == info.label) return;
@@ -22,17 +25,23 @@ export function DeleteLabelAction(context: Context<WebhookPayloadLabel>, login: 
   }
 }
 
-export function ModifiedLabelAction(context: Context<WebhookPayloadLabel>, login: string, name: string, label: WebhookPayloadLabelLabel) : (info: INodeInfo) => void {
+export function ModifiedLabelAction(context: Context<WebhookPayloadLabel>, name: string) : (info: INodeInfo) => void {
+
+  const login             =  (context.payload as LabelHookPayload).organization.login;
+  const label_name        =  (context.payload as LabelHookPayload).label.name;
+  const label_color       =  (context.payload as LabelHookPayload).label.color;
+  const label_description = ((context.payload as LabelHookPayload).label as any).description;
+
   return (info: INodeInfo) => {
     if (info.label == null) {
+      
       // Create label
-
       const options: Octokit.IssuesCreateLabelParams = {
         owner: login,
-        repo: info.name,
-        name: label.name,
-        color: label.color,
-        description: (label as any).description
+        repo:  info.name,
+        name:  label_name,
+        color: label_color,
+        description: label_description
       }
 
       context.github.issues
@@ -53,15 +62,15 @@ export function ModifiedLabelAction(context: Context<WebhookPayloadLabel>, login
                                     })
                     })
       } else {
-      // Update label
-
+        
+        // Update label
       const options: Octokit.IssuesUpdateLabelParams = {
         owner: login,
         repo: info.name,
         current_name: name,
-        name: label.name,
-        color: label.color,
-        description: (label as any).description
+        name:  label_name,
+        color: label_color,
+        description: label_description
       }
 
       context.github.issues

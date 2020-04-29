@@ -10,15 +10,14 @@ export = (app: Application) => {
 
     // Parameters
     const payload = context.payload as LabelHookPayload
-    const login  = payload.organization.login
     const target = payload.changes?.name
                  ? payload.changes.name.from
                  : payload.label.name
 
     // Select and create action to perform
     var action = payload.action == 'deleted'
-               ? DeletedLabelAction( context, login, payload.label.name)
-               : ModifiedLabelAction(context, login, target, payload.label);
+               ? DeletedLabelAction( context, payload.label.name)
+               : ModifiedLabelAction(context, target);
 
     // Process all repositories
     for await (const node of LabelEnumerator(context, target)) action(node)
