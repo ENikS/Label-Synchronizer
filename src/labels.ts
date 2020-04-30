@@ -1,11 +1,11 @@
 import { Context } from 'probot'
 import { Octokit } from '@octokit/rest'
 import { WebhookPayloadLabel } from '@octokit/webhooks'
-import { INodeInfo, LabelHookPayload } from './repositories'
+import { INodeInfo } from './repositories'
 
 export function DeleteLabelAction(context: Context<WebhookPayloadLabel>, name: string) : (info: INodeInfo) => void {
 
-  const login = (context.payload as LabelHookPayload).organization.login;
+  const login = context.payload.sender.login;
 
   return (info: INodeInfo) => {
     
@@ -27,10 +27,10 @@ export function DeleteLabelAction(context: Context<WebhookPayloadLabel>, name: s
 
 export function ModifiedLabelAction(context: Context<WebhookPayloadLabel>, name: string) : (info: INodeInfo) => void {
 
-  const login             =  (context.payload as LabelHookPayload).organization.login;
-  const label_name        =  (context.payload as LabelHookPayload).label.name;
-  const label_color       =  (context.payload as LabelHookPayload).label.color;
-  const label_description = ((context.payload as LabelHookPayload).label as any).description;
+  const login             = context.payload.sender.login;
+  const label_name        = context.payload.label.name;
+  const label_color       = context.payload.label.color;
+  const label_description = (context.payload.label as any).description;
 
   return (info: INodeInfo) => {
     if (info.label == null) {
