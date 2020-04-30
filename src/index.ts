@@ -4,6 +4,10 @@ import { DeleteLabelAction as DeletedLabelAction, ModifiedLabelAction } from './
 
 
 export = (app: Application) => {
+
+  app.on("purchased", async (context) => {
+    context.log(context);
+  })
   
   app.on('label', async (context) => {
     
