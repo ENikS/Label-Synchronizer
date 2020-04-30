@@ -1,0 +1,8 @@
+{
+    "exemptions": [
+        {
+            "name" : "unitycontainer",
+            "description" : "Unity Container public project"
+        }
+    ]
+}
