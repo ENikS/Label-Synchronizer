@@ -1,7 +1,7 @@
 import { Application } from 'probot'
 import { LabelEnumerator } from './repositories'
 import { DeleteLabelAction as DeletedLabelAction, ModifiedLabelAction } from './labels'
-
+import { GetPlanName } from './plans'
 
 export = (app: Application) => {
 
@@ -13,6 +13,10 @@ export = (app: Application) => {
     
     // Dismiss requests from any bot
     if (context.isBot) return; 
+
+    let plan = await GetPlanName(app, context);
+    console.log(plan);
+    
 
     // Parameters
     const changes = (context.payload as any).changes
@@ -28,4 +32,5 @@ export = (app: Application) => {
     // Process all repositories
     for await (const node of LabelEnumerator(context, target)) action(node)
   })
+  
 }
