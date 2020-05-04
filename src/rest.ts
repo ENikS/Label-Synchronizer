@@ -13,6 +13,8 @@ export function CreateLabel(github: GitHubAPI, node: INodeInfo, label: WebhookPa
         description: (label as any).description
     }
 
+    github.log.debug(`Crating label: ${options}`);
+
     github.issues.createLabel(options)
                 .catch((e: Octokit.HookError) => {
 
@@ -58,6 +60,8 @@ export function UpdateLabel(github: GitHubAPI, node: INodeInfo, label: WebhookPa
         description: (label as any).description
     }
       
+    github.log.debug(`Updating label: ${options}`);
+
     github
         .issues
         .updateLabel(options)
@@ -75,8 +79,9 @@ export function DeleteLabel(github: GitHubAPI, node: INodeInfo) {
         owner: node.owner.login,
         repo: node.name,
         name: node.label.name
-      }
+    }
   
+    github.log.debug(`Deleting label: ${options}`);
       
     github
         .issues
