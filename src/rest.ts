@@ -1,6 +1,6 @@
 import { GitHubAPI, Octokit } from "probot";
 import { WebhookPayloadLabelLabel } from '@octokit/webhooks'
-import { INodeInfo, ILabelInfo } from "./repositories";
+import { INodeInfo } from "./typings";
 
 export function CreateLabel(github: GitHubAPI, node: INodeInfo, label: WebhookPayloadLabelLabel) {
   
@@ -37,17 +37,22 @@ export function CreateLabel(github: GitHubAPI, node: INodeInfo, label: WebhookPa
 }
 
 
-export function UpdateLabel(github: GitHubAPI, node: INodeInfo, current: ILabelInfo, label: WebhookPayloadLabelLabel) {
+export function UpdateLabel(github: GitHubAPI, node: INodeInfo, label: WebhookPayloadLabelLabel) {
+
+    if (null == node.label) {
+        github.log.error("Invalid label passed for an update");
+        return;
+    }
 
     // Skip if no changes found
-    if ((current.id == label.id) || (current.color == label.color && current.description == (label as any).description)) {
+    if (node.label.name == label.name && node.label.color == label.color && node.label.description == (label as any).description) {
         return; 
     }
 
     const options: Octokit.IssuesUpdateLabelParams = {
         owner: node.owner.login,
         repo: node.name,
-        current_name: current.name,
+        current_name: node.label.name,
         name:  label.name,
         color: label.color,
         description: (label as any).description

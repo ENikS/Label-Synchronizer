@@ -1,6 +1,7 @@
 import { Application } from 'probot'
-import { getAuthorizedRepositories } from './repositories'
+import { IWebhookPayloadLabel } from './typings'
 import { CreateLabel, UpdateLabel, DeleteLabel } from './rest'
+import { getChangeCandidates, getRenameCandidates } from './repositories'
 
 
 // Subscribe to label events
@@ -24,49 +25,18 @@ export = (app: Application) => {
     // Dismiss requests from any bot
     if (context.isBot) return; 
 
-    // Get authorized GitHub API
-    const label = context.payload.label;
-
       // Process each repository
-    for await (const node of  getAuthorizedRepositories(app, context.payload)) {
+    for await (const node of  getChangeCandidates(app, context.payload)) {
 
       if (null == node.label) {
         
         // Create label
-        CreateLabel(context.github, node, label);
+        CreateLabel(context.github, node, context.payload.label);
 
       } else {
         
         // Update existing label
-        UpdateLabel(context.github, node, node.label, label)  
-      }
-    }
-  })
-
-
-  /**
-   ** Handles Label Edited event
-   **/
-  app.on("label.edited",  async (context) => {
-        
-    // Dismiss requests from any bot
-    if (context.isBot) return; 
-
-    // Get authorized GitHub API
-    const label = context.payload.label;
-
-      // Process each repository
-    for await (const node of  getAuthorizedRepositories(app, context.payload)) {
-
-      if (null == node.label) {
-        
-        // Create label
-        CreateLabel(context.github, node, label);
-
-      } else {
-        
-        // Update existing label
-        UpdateLabel(context.github, node, node.label, label)  
+        UpdateLabel(context.github, node, context.payload.label)  
       }
     }
   })
@@ -80,12 +50,66 @@ export = (app: Application) => {
     if (context.isBot) return; 
 
     // Process each repository
-    for await (const node of getAuthorizedRepositories(app, context.payload)) {
+    for await (const node of getChangeCandidates(app, context.payload)) {
 
       if (null != node.label) {
         
         // Delete label
         DeleteLabel(context.github, node);
+      }
+    }
+  })
+
+
+  /**
+   ** Handles Label Edited event
+   **/
+  app.on("label.edited",  async (context) => {
+        
+    // Dismiss requests from any bot
+    if (context.isBot) return; 
+
+    if ((context.payload as IWebhookPayloadLabel).changes.name) {
+      
+      // Process changes in the name
+      for await (const node of  getRenameCandidates(app, context.payload)) {
+        
+        if (node.original) {
+
+          // Update one
+          UpdateLabel(context.github, node, context.payload.label)  
+          // Delete the other
+          node.label = node.original;
+          DeleteLabel(context.github, node);
+
+        } else if (node.label) {
+          
+          // update label
+          UpdateLabel(context.github, node, context.payload.label)  
+
+        } else {
+          
+          // Create new label
+          CreateLabel(context.github, node, context.payload.label);
+
+        }
+      }
+
+    } else {
+
+      // Process changes in color or description
+      for await (const node of  getChangeCandidates(app, context.payload)) {
+
+        if (null == node.label) {
+          
+          // Create label
+          CreateLabel(context.github, node, context.payload.label);
+  
+        } else {
+          
+          // Update existing label
+          UpdateLabel(context.github, node, context.payload.label)  
+        }
       }
     }
   })
