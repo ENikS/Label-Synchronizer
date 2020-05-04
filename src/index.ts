@@ -69,27 +69,31 @@ export = (app: Application) => {
     // Dismiss requests from any bot
     if (context.isBot) return; 
 
+    // When label is renamed, it requires checks for new and old
+    // name so it is split in two possible cases here
     if ((context.payload as IWebhookPayloadLabel).changes.name) {
       
       // Process changes in the name
       for await (const node of  getRenameCandidates(app, context.payload)) {
         
         if (node.original) {
-
+          // The repository has labels that match both names
+          
           // Update one
           UpdateLabel(context.github, node, context.payload.label)  
+
           // Delete the other
           node.label = node.original;
           DeleteLabel(context.github, node);
 
         } else if (node.label) {
-          
-          // update label
+
+          // Only one matching label, simple update
           UpdateLabel(context.github, node, context.payload.label)  
 
         } else {
           
-          // Create new label
+          // No matching labels, create a new label
           CreateLabel(context.github, node, context.payload.label);
 
         }
@@ -102,7 +106,7 @@ export = (app: Application) => {
 
         if (null == node.label) {
           
-          // Create label
+          // No matching labels, create a new label
           CreateLabel(context.github, node, context.payload.label);
   
         } else {
