@@ -1,42 +1,53 @@
-import { Context } from 'probot'
-import { WebhookPayloadLabel } from '@octokit/webhooks'
+import { Application } from 'probot'
+import { WebhookPayloadLabel, WebhookPayloadLabelSender, PayloadRepository, WebhookPayloadRepositoryDispatchInstallation } from '@octokit/webhooks'
+import { getSubscribedPlan } from './plans'
 
-export interface ChangedFrom {
-  from: string;
-}
-
-export interface PayloadLabelChanges {
-  name: ChangedFrom | undefined;
-  color: ChangedFrom | undefined;
-}
+export const MAX_ITEMS_PER_TRANSACTION = parseInt(process.env.MAX_ITEMS_PER_TRANSACTION || '100', 10);
 
 export interface ILabelInfo {
-  id: string;
-  color: string
-  description: string | null
+  node_id: string;
+  id: number;
+  url: string;
+  name: string;
+  color: string;
+  default: boolean;
+  description: string | null | undefined;
 }
 
 export interface INodeInfo {
   id: string;
   name: string;
+  owner: { login: string; }
+  databaseId: number;
   label: ILabelInfo | null;
 }
 
 export interface IRepoQueryPayload {
-  owner: {
+  viewer: {
     repositories: {
         pageInfo: {
           endCursor: string;
           hasNextPage: boolean;
         };
-        nodes: Array<INodeInfo>;
+        nodes: Array<INodeInfo>
     }
-  };
+  }
 }
 
-const orgQuery = `query labels($login: String!, $name: String!, $cursor: String) {
-  owner: organization(login: $login) {
-      repositories(first: 100, after: $cursor) {
+interface ILabelWebhookPayload {
+  action: string;
+  label: ILabelInfo;
+  repository: PayloadRepository;
+  sender: WebhookPayloadLabelSender;
+  installation: WebhookPayloadRepositoryDispatchInstallation;
+}
+
+export async function * getAuthorizedRepositories(app: Application, data: WebhookPayloadLabel) {
+  
+  const queryAll = `
+  query getRepoInfos($name: String!, $cursor: String, $size: Int!) {
+    viewer {
+      repositories(first: $size, ownerAffiliations: OWNER, after: $cursor) {
         pageInfo {
           endCursor
           hasNextPage
@@ -44,8 +55,10 @@ const orgQuery = `query labels($login: String!, $name: String!, $cursor: String)
         nodes {
           id
           name
-          isPrivate
+          owner { login }
+          databaseId
           label(name: $name) {
+            name
             id
             color
             description
@@ -53,104 +66,71 @@ const orgQuery = `query labels($login: String!, $name: String!, $cursor: String)
         }
       }
     }
-  }`
-
-const userQuery = `query labels($login: String!, $name: String!, $cursor: String) {
-  owner: user(login: $login) {
-    repositories(first: 100, after: $cursor) {
-      pageInfo {
-        endCursor
-        hasNextPage
-      }
-      nodes {
-        id
-        name
-        isPrivate
-      label(name: $name) {
+  }
+  `
+  const queryPublic = `
+  query getRepoInfos($name: String!, $cursor: String, $size: Int!) {
+    viewer {
+      repositories(first: $size, ownerAffiliations: OWNER, after: $cursor, privacy: PUBLIC) {
+        pageInfo {
+          endCursor
+          hasNextPage
+        }
+        nodes {
           id
-          color
-          description
+          name
+          owner { login }
+          databaseId
+          label(name: $name) {
+            name
+            id
+            color
+            description
+          }
         }
       }
     }
   }
-}`
-
-export async function * LabelEnumerator (context: Context<WebhookPayloadLabel>, name: string) {
-    
-  const tracker = {
-    login: context.payload.sender.login,
-    name: name,
-    cursor: null as any
-  }
+  `
+  const payload = data as ILabelWebhookPayload; 
+  const plan = getSubscribedPlan(app, payload.installation.id);
+  const github = await app.auth(payload.installation.id);
 
   try 
   {
-    let installations = await GetInstallations(context);
-
+    const query = (await plan).ignorePrivate ? queryPublic : queryAll;
+    const tracker = {
+      size: MAX_ITEMS_PER_TRANSACTION,
+      name: payload.label.name,
+      cursor: null as any
+    }
+    
     // Query matching labels
     let data: IRepoQueryPayload
-    let query = (context.payload as any).organization 
-              ? orgQuery 
-              : userQuery;
-    let promise = context.github.graphql(query, tracker)
+    let promise = github.graphql(query, tracker)
     
-    do {
+    do 
+    {
       // Wait for the results
       data = await promise as IRepoQueryPayload
 
       // If more data is available request it now
-      if (data.owner.repositories.pageInfo.hasNextPage) {
-        tracker.cursor = data.owner.repositories.pageInfo.endCursor
-        promise = context.github.graphql(query, tracker)
+      if (data.viewer.repositories.pageInfo.hasNextPage) {
+        tracker.cursor = data.viewer.repositories.pageInfo.endCursor
+        promise = github.graphql(query, tracker)
       }
 
       // Yield label info for each matching repository
-      for (const node of data.owner.repositories.nodes) {
-        if (installations.has(node.id)) yield node
+      for (const node of data.viewer.repositories.nodes) {
+        yield node
       }
-    } while (data.owner.repositories.pageInfo.hasNextPage)
+
+      // Repeat while more data is available
+    } while (data.viewer.repositories.pageInfo.hasNextPage)
+
   } 
   catch (e) 
   {
-    context.log.error(e)
+    github.log.error(e)
   }
 }
-
-
-async function GetInstallations (context: Context<WebhookPayloadLabel>) {
-
-  // Create a set of target repositories 
-  let morePages = true;
-  let set: Set<string> = new Set<string>();
-  let options = { page: 1, per_page: 100 };
-  let reposPromise = context.github.apps.listRepos(options);
-  let node_id = context.payload.repository.node_id;
-
-  // Get list of repos where the app is installed
-  do {
-
-    // Wait for the results
-    let repos = await reposPromise;
-    
-    // If more data is available request it now
-    let last = options.page * options.per_page;
-    if (repos.data.total_count > last) {
-      options.page++;
-      reposPromise = context.github.apps.listRepos(options);
-    } else {
-      morePages = false;
-    }
-
-    // Process page
-    for (let repo of repos.data.repositories) {
-      if (node_id != repo.node_id) {
-        set.add(repo.node_id);
-      }
-    }
-
-  } while (morePages);
-
-  return set;
-}
-
