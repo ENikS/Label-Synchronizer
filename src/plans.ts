@@ -1,13 +1,24 @@
 import { Octokit, Application } from 'probot'
+import { IWebhookPayloadLabel } from './typings';
 
 var exemptions = GetExemptions();
+
+
+function GetExemptions() : Set<string> {
+  let set = new Set<string>();
+  let data =  require("../exemptions.json");
+  
+  for (let exemption of data.exemptions) {
+      set.add(exemption.name);
+  }
+
+  return set;
+}
 
 
 export class MarketplacePlan {
 
   constructor(plan?: any) {
-
-    if (exemptions) { /* do nothing */}
 
     if (plan) {
     
@@ -33,7 +44,7 @@ export class MarketplacePlan {
     } else {
       
       // No plan is found (direct install)
-      this.name = "Not found";
+      this.name = "Exemption";
       this.ignorePrivate = false;
     }
   }
@@ -44,7 +55,14 @@ export class MarketplacePlan {
 }
 
 
-export async function getSubscribedPlan(app: Application, id: number) {
+export async function getSubscribedPlan(app: Application, payload: IWebhookPayloadLabel) {
+
+  const id: number = payload.installation.id;
+
+  if (exemptions.has(payload.repository.owner.login)) {
+    return new MarketplacePlan();
+  }
+
   try {
 
     const options: Octokit.EndpointOptions = {
@@ -59,17 +77,5 @@ export async function getSubscribedPlan(app: Application, id: number) {
   } catch(e) {
     return new MarketplacePlan();
   }
-}
-
-
-function GetExemptions() : Set<string> {
-  let set = new Set<string>();
-  let data =  require("../exemptions.json");
-  
-  for (let exemption of data.exemptions) {
-      set.add(exemption.name);
-  }
-
-  return set;
 }
 

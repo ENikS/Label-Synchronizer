@@ -20,6 +20,10 @@ interface IQueryPayload {
 
 export async function * getChangeCandidates(app: Application, data: WebhookPayloadLabel) {
 
+  const payload = data as IWebhookPayloadLabel; 
+  const planPromise = getSubscribedPlan(app, payload);
+  const githubPromise = app.auth(payload.installation.id);
+  const databaseId = payload.repository.id;
   const queryAll = `
   query getRepoInfos($name: String!, $cursor: String, $size: Int!) {
     viewer {
@@ -68,21 +72,20 @@ export async function * getChangeCandidates(app: Application, data: WebhookPaylo
     }
   }
   `
-  const payload = data as IWebhookPayloadLabel; 
-  const plan = getSubscribedPlan(app, payload.installation.id);
-  const github = await app.auth(payload.installation.id);
-  const databaseId = payload.repository.id;
 
   try 
   {
-    const query = (await plan).ignorePrivate ? queryPublic : queryAll;
     const tracker = {
       size: MAX_ITEMS_PER_TRANSACTION,
       name: payload.label.name,
       cursor: null as any
     }
+    const plan = await planPromise;
+    const query = plan.ignorePrivate ? queryPublic : queryAll;
+    const github = await githubPromise;
     
     // Query matching labels
+    let count = 0;
     let data: IQueryPayload
     let promise = github.graphql(query, tracker)
     
@@ -102,6 +105,8 @@ export async function * getChangeCandidates(app: Application, data: WebhookPaylo
         if (node.databaseId == databaseId) continue;
 
         yield node as INodeInfo;
+
+        if (typeof plan.limit !== 'undefined' && plan.limit < ++count) return;
       }
 
       // Repeat while more data is available
@@ -110,7 +115,7 @@ export async function * getChangeCandidates(app: Application, data: WebhookPaylo
   } 
   catch (e) 
   {
-    github.log.error(e)
+    app.log.error(e)
   }
 }
 
@@ -121,6 +126,10 @@ export interface IBinaryNodeInfo extends INodeInfo {
 
 export async function * getRenameCandidates(app: Application, data: WebhookPayloadLabel) {
   
+  const payload = data as IWebhookPayloadLabel; 
+  const planPromise = getSubscribedPlan(app, payload);
+  const githubPromise = app.auth(payload.installation.id);
+  const databaseId = payload.repository.id;
   const queryAll = `
   query getRepoInfos($names: String!, $cursor: String, $size: Int!) {
     viewer {
@@ -175,23 +184,22 @@ export async function * getRenameCandidates(app: Application, data: WebhookPaylo
     }
   }
   `
-  const payload = data as IWebhookPayloadLabel; 
-  const plan = getSubscribedPlan(app, payload.installation.id);
-  const github = await app.auth(payload.installation.id);
-  const databaseId = payload.repository.id;
   const oldName = payload.changes.name?.from;
   const newName = payload.label.name;
 
   try 
   {
-    const query = (await plan).ignorePrivate ? queryPublic : queryAll;
     const tracker = {
       size: MAX_ITEMS_PER_TRANSACTION,
       names: `${newName} ${oldName}`,
       cursor: null as any
     }
+    const plan = await planPromise;
+    const query = plan.ignorePrivate ? queryPublic : queryAll;
+    const github = await githubPromise;
     
     // Query matching labels
+    let count = 0;
     let data: IQueryPayload
     let promise = github.graphql(query, tracker)
     
@@ -239,6 +247,8 @@ export async function * getRenameCandidates(app: Application, data: WebhookPaylo
         } 
 
         yield node as IBinaryNodeInfo;
+        
+        if (typeof plan.limit !== 'undefined' && plan.limit < ++count) return;
       }
 
       // Repeat while more data is available
@@ -247,6 +257,6 @@ export async function * getRenameCandidates(app: Application, data: WebhookPaylo
   } 
   catch (e) 
   {
-    github.log.error(e)
+    app.log.error(e)
   }
 }

@@ -1,8 +1,24 @@
 {
-    "exemptions": [
-        {
-            "name" : "unitycontainer",
-            "description" : "Unity Container public project"
-        }
-    ]
+  "description": "This file contains owners exempt from paying for using this app" ,
+  "exemptions": [ 
+    {
+      "name" : "unitycontainer",
+      "description" : "Unity Container public project"
+    }, 
+    {
+      "name" : "ENikS",
+      "description" : "Supports Unity Container project"
+    }, 
+    {
+      "name" : "aspnet",
+      "description" : "ASP.NET and Entity Framework"
+    }, 
+    {
+      "name" : "dotnet-foundation",
+      "description" : ".NET Foundation"
+    }, 
+    {
+      "name" : "MyHomeLibrary",
+      "description" : "Public library project"
+    }]
 }
