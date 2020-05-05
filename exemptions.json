@@ -1,4 +1,5 @@
 {
+  "description": "This file contains owners exempt from paying for using this app" ,
   "exemptions": [ 
     {
       "name" : "unitycontainer",
