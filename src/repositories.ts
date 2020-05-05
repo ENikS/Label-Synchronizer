@@ -21,7 +21,7 @@ interface IQueryPayload {
 export async function * getChangeCandidates(app: Application, data: WebhookPayloadLabel) {
 
   const payload = data as IWebhookPayloadLabel; 
-  const planPromise = getSubscribedPlan(app, payload.installation.id);
+  const planPromise = getSubscribedPlan(app, payload);
   const githubPromise = app.auth(payload.installation.id);
   const databaseId = payload.repository.id;
   const queryAll = `
@@ -127,7 +127,7 @@ export interface IBinaryNodeInfo extends INodeInfo {
 export async function * getRenameCandidates(app: Application, data: WebhookPayloadLabel) {
   
   const payload = data as IWebhookPayloadLabel; 
-  const planPromise = getSubscribedPlan(app, payload.installation.id);
+  const planPromise = getSubscribedPlan(app, payload);
   const githubPromise = app.auth(payload.installation.id);
   const databaseId = payload.repository.id;
   const queryAll = `
