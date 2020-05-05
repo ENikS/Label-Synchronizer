@@ -1,8 +1,23 @@
 {
-    "exemptions": [
-        {
-            "name" : "unitycontainer",
-            "description" : "Unity Container public project"
-        }
-    ]
+  "exemptions": [ 
+    {
+      "name" : "unitycontainer",
+      "description" : "Unity Container public project"
+    }, 
+    {
+      "name" : "ENikS",
+      "description" : "Supports Unity Container project"
+    }, 
+    {
+      "name" : "aspnet",
+      "description" : "ASP.NET and Entity Framework"
+    }, 
+    {
+      "name" : "dotnet-foundation",
+      "description" : ".NET Foundation"
+    }, 
+    {
+      "name" : "MyHomeLibrary",
+      "description" : "Public library project"
+    }]
 }

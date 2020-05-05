@@ -3,6 +3,19 @@ import { IWebhookPayloadLabel } from './typings';
 
 var exemptions = GetExemptions();
 
+
+function GetExemptions() : Set<string> {
+  let set = new Set<string>();
+  let data =  require("../exemptions.json");
+  
+  for (let exemption of data.exemptions) {
+      set.add(exemption.name);
+  }
+
+  return set;
+}
+
+
 export class MarketplacePlan {
 
   constructor(plan?: any) {
@@ -64,17 +77,5 @@ export async function getSubscribedPlan(app: Application, payload: IWebhookPaylo
   } catch(e) {
     return new MarketplacePlan();
   }
-}
-
-
-function GetExemptions() : Set<string> {
-  let set = new Set<string>();
-  let data =  require("../exemptions.json");
-  
-  for (let exemption of data.exemptions) {
-      set.add(exemption.name);
-  }
-
-  return set;
 }
 
